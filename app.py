@@ -7,7 +7,7 @@ def loan():
     return jsonify({
         "service": "Loan Service",
         "status": "running",
-        "message": "Loan service v2 is available"
+        "message": "Loan service v1 is available"
     })
 
 if __name__ == "__main__":
