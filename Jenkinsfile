@@ -4,18 +4,32 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out GitHub repository'
+                echo 'Cloning GitHub repository'
 
                 git branch: 'main',
                     url: 'https://github.com/rohit000mp-cloud/banking-loan-service.git'
             }
         }
 
+        stage('Test Application') {
+            steps {
+                echo 'Running Python application tests'
+
+                sh '''
+                    docker run --rm \
+                        -v "$PWD:/app" \
+                        -w /app \
+                        python:3.12-slim \
+                        sh -c "pip install --no-cache-dir -r requirements.txt && python -m pytest -v"
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
-                echo 'Building loan service Docker image'
+                echo 'Building Docker image'
 
-                sh 'docker build -t loan-service:v2 .'
+                sh 'docker build -t loan-service:v3 .'
             }
         }
 
@@ -29,14 +43,14 @@ pipeline {
                     docker run -d \
                         --name loan-container \
                         -p 127.0.0.1:5001:5000 \
-                        loan-service:v2
+                        loan-service:v3
                 '''
             }
         }
 
         stage('Health Check') {
             steps {
-                echo 'Checking loan application health'
+                echo 'Checking application health'
 
                 sh '''
                     for attempt in 1 2 3 4 5 6 7 8 9 10
@@ -45,13 +59,13 @@ pipeline {
                             --output /dev/null \
                             http://127.0.0.1:5001/loan
                         then
-                            echo "Loan application healthy"
+                            echo "Loan service is healthy"
                             curl --fail --silent --show-error \
                                 http://127.0.0.1:5001/loan
                             exit 0
                         fi
 
-                        echo "Retry attempt $attempt"
+                        echo "Attempt $attempt failed. Retrying..."
                         sleep 3
                     done
 
@@ -65,11 +79,11 @@ pipeline {
 
     post {
         success {
-            echo 'GitHub webhook CI/CD pipeline successful'
+            echo 'SUCCESS: Tests passed and loan service deployed'
         }
 
         failure {
-            echo 'Pipeline failed. Check console output'
+            echo 'FAILURE: Pipeline failed. Check console output'
         }
     }
 }
